@@ -35,13 +35,15 @@ def ai_reply(prompt):
         return "Dhanyavaad. Aapka appointment request receive ho gaya hai."
 
 
+# ---------------- FIRST CALL ----------------
+
 @app.route("/voice", methods=["POST"])
 def voice():
 
     response = VoiceResponse()
 
     gather = Gather(
-        input="speech",
+        input="speech dtmf",
         action="/get_name",
         method="POST",
         speechTimeout="auto"
@@ -57,16 +59,18 @@ def voice():
     return str(response)
 
 
+# ---------------- GET NAME ----------------
+
 @app.route("/get_name", methods=["POST"])
 def get_name():
 
-    name = request.form.get("SpeechResult")
+    name = request.form.get("SpeechResult") or "Patient"
     phone = request.form.get("From")
 
     response = VoiceResponse()
 
     gather = Gather(
-        input="speech",
+        input="speech dtmf",
         action=f"/get_problem?name={name}&phone={phone}",
         method="POST",
         speechTimeout="auto"
@@ -82,24 +86,30 @@ def get_name():
     return str(response)
 
 
+# ---------------- GET PROBLEM ----------------
+
 @app.route("/get_problem", methods=["POST"])
 def get_problem():
 
     name = request.args.get("name")
     phone = request.args.get("phone")
-    problem = request.form.get("SpeechResult")
+    problem = request.form.get("SpeechResult") or "No problem described"
 
     # Save to Excel
-    df = pd.read_excel(excel_file)
+    try:
+        df = pd.read_excel(excel_file)
 
-    new_data = pd.DataFrame([{
-        "Phone": phone,
-        "Name": name,
-        "Problem": problem
-    }])
+        new_data = pd.DataFrame([{
+            "Phone": phone,
+            "Name": name,
+            "Problem": problem
+        }])
 
-    df = pd.concat([df, new_data], ignore_index=True)
-    df.to_excel(excel_file, index=False)
+        df = pd.concat([df, new_data], ignore_index=True)
+        df.to_excel(excel_file, index=False)
+
+    except:
+        pass
 
     response = VoiceResponse()
 
@@ -112,7 +122,8 @@ def get_problem():
     return str(response)
 
 
-# IMPORTANT FOR RENDER
+# ---------------- RENDER SERVER ----------------
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
