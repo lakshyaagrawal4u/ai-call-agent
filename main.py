@@ -13,21 +13,26 @@ app = Flask(__name__)
 
 excel_file = "appointments.xlsx"
 
+# Create Excel if not exists
 if not os.path.exists(excel_file):
     df = pd.DataFrame(columns=["Phone", "Name", "Problem"])
     df.to_excel(excel_file, index=False)
 
 
 def ai_reply(prompt):
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": "You are a polite clinic voice assistant."},
-            {"role": "user", "content": prompt}
-        ]
-    )
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are a polite clinic voice assistant."},
+                {"role": "user", "content": prompt}
+            ]
+        )
 
-    return response.choices[0].message.content
+        return response.choices[0].message.content
+
+    except:
+        return "Dhanyavaad. Aapka appointment request receive ho gaya hai."
 
 
 @app.route("/voice", methods=["POST"])
@@ -62,7 +67,7 @@ def get_name():
 
     gather = Gather(
         input="speech",
-        action="/get_problem",
+        action=f"/get_problem?name={name}&phone={phone}",
         method="POST",
         speechTimeout="auto"
     )
@@ -73,8 +78,6 @@ def get_name():
     )
 
     response.append(gather)
-
-    response.redirect(f"/get_problem?name={name}&phone={phone}")
 
     return str(response)
 
@@ -109,5 +112,7 @@ def get_problem():
     return str(response)
 
 
+# IMPORTANT FOR RENDER
 if __name__ == "__main__":
-    app.run(port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
