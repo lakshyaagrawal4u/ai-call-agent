@@ -35,7 +35,7 @@ def ai_reply(prompt):
         return "Dhanyavaad. Aapka appointment request receive ho gaya hai."
 
 
-# FIRST ROUTE
+# CALL START
 @app.route("/voice", methods=["POST"])
 def voice():
 
@@ -45,7 +45,8 @@ def voice():
         input="speech dtmf",
         action="/get_name",
         method="POST",
-        speechTimeout="auto"
+        speechTimeout="auto",
+        timeout=5
     )
 
     gather.say(
@@ -62,7 +63,7 @@ def voice():
 @app.route("/get_name", methods=["POST"])
 def get_name():
 
-    name = request.form.get("SpeechResult")
+    name = request.form.get("SpeechResult") or request.form.get("Digits")
     phone = request.form.get("From")
 
     if not name:
@@ -74,7 +75,8 @@ def get_name():
         input="speech dtmf",
         action=f"/get_problem?name={name}&phone={phone}",
         method="POST",
-        speechTimeout="auto"
+        speechTimeout="auto",
+        timeout=5
     )
 
     gather.say(
@@ -93,7 +95,7 @@ def get_problem():
 
     name = request.args.get("name")
     phone = request.args.get("phone")
-    problem = request.form.get("SpeechResult")
+    problem = request.form.get("SpeechResult") or request.form.get("Digits")
 
     if not problem:
         problem = "Not specified"
@@ -121,7 +123,18 @@ def get_problem():
     return str(response)
 
 
-# IMPORTANT FOR RENDER
+# VIEW DATA IN BROWSER
+@app.route("/data")
+def view_data():
+
+    df = pd.read_excel(excel_file)
+
+    return df.to_html()
+
+
+# RENDER SERVER START
 if __name__ == "__main__":
+
     port = int(os.environ.get("PORT", 5000))
+
     app.run(host="0.0.0.0", port=port)
