@@ -2,51 +2,27 @@ from flask import Flask, request
 from twilio.twiml.voice_response import VoiceResponse, Gather
 import pandas as pd
 import os
-from dotenv import load_dotenv
-from openai import OpenAI
-
-load_dotenv()
-
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 app = Flask(__name__)
 
 excel_file = "appointments.xlsx"
 
-# create excel if not exists
 if not os.path.exists(excel_file):
-    df = pd.DataFrame(columns=["Phone", "Name", "Problem"])
+    df = pd.DataFrame(columns=["Phone", "Name", "Problem", "Date"])
     df.to_excel(excel_file, index=False)
 
 
-def ai_reply(prompt):
-    try:
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "You are a polite clinic voice assistant."},
-                {"role": "user", "content": prompt}
-            ]
-        )
-
-        return response.choices[0].message.content
-
-    except:
-        return "Dhanyavaad. Aapka appointment request receive ho gaya hai."
-
-
-# CALL START
 @app.route("/voice", methods=["POST"])
 def voice():
 
     response = VoiceResponse()
 
     gather = Gather(
-        input="speech dtmf",
+        input="speech",
         action="/get_name",
         method="POST",
-        speechTimeout="auto",
-        timeout=5
+        language="hi-IN",
+        speechModel="phone_call"
     )
 
     gather.say(
@@ -59,24 +35,20 @@ def voice():
     return str(response)
 
 
-# GET NAME
 @app.route("/get_name", methods=["POST"])
 def get_name():
 
-    name = request.form.get("SpeechResult") or request.form.get("Digits")
+    name = request.form.get("SpeechResult")
     phone = request.form.get("From")
-
-    if not name:
-        name = "Patient"
 
     response = VoiceResponse()
 
     gather = Gather(
-        input="speech dtmf",
+        input="speech",
         action=f"/get_problem?name={name}&phone={phone}",
         method="POST",
-        speechTimeout="auto",
-        timeout=5
+        language="hi-IN",
+        speechModel="phone_call"
     )
 
     gather.say(
@@ -89,52 +61,64 @@ def get_name():
     return str(response)
 
 
-# GET PROBLEM
 @app.route("/get_problem", methods=["POST"])
 def get_problem():
 
     name = request.args.get("name")
     phone = request.args.get("phone")
-    problem = request.form.get("SpeechResult") or request.form.get("Digits")
+    problem = request.form.get("SpeechResult")
 
-    if not problem:
-        problem = "Not specified"
+    response = VoiceResponse()
 
-    # save to excel
+    gather = Gather(
+        input="speech",
+        action=f"/get_date?name={name}&phone={phone}&problem={problem}",
+        method="POST",
+        language="hi-IN",
+        speechModel="phone_call"
+    )
+
+    gather.say(
+        "Aap appointment kis date ke liye lena chahte hain?",
+        language="hi-IN"
+    )
+
+    response.append(gather)
+
+    return str(response)
+
+
+@app.route("/get_date", methods=["POST"])
+def get_date():
+
+    name = request.args.get("name")
+    phone = request.args.get("phone")
+    problem = request.args.get("problem")
+    date = request.form.get("SpeechResult")
+
     df = pd.read_excel(excel_file)
 
     new_data = pd.DataFrame([{
         "Phone": phone,
         "Name": name,
-        "Problem": problem
+        "Problem": problem,
+        "Date": date
     }])
 
     df = pd.concat([df, new_data], ignore_index=True)
+
     df.to_excel(excel_file, index=False)
 
     response = VoiceResponse()
 
-    msg = ai_reply(
-        f"Patient name is {name} and problem is {problem}. Reply politely confirming appointment."
+    response.say(
+        "Dhanyavaad. Aapka appointment request register ho gaya hai.",
+        language="hi-IN"
     )
-
-    response.say(msg, language="hi-IN")
 
     return str(response)
 
 
-# VIEW DATA IN BROWSER
-@app.route("/data")
-def view_data():
-
-    df = pd.read_excel(excel_file)
-
-    return df.to_html()
-
-
-# RENDER SERVER START
 if __name__ == "__main__":
-
     port = int(os.environ.get("PORT", 5000))
-
     app.run(host="0.0.0.0", port=port)
