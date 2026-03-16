@@ -13,7 +13,7 @@ app = Flask(__name__)
 
 excel_file = "appointments.xlsx"
 
-# Create Excel if not exists
+# create excel if not exists
 if not os.path.exists(excel_file):
     df = pd.DataFrame(columns=["Phone", "Name", "Problem"])
     df.to_excel(excel_file, index=False)
@@ -35,8 +35,7 @@ def ai_reply(prompt):
         return "Dhanyavaad. Aapka appointment request receive ho gaya hai."
 
 
-# ---------------- FIRST CALL ----------------
-
+# FIRST ROUTE
 @app.route("/voice", methods=["POST"])
 def voice():
 
@@ -59,13 +58,15 @@ def voice():
     return str(response)
 
 
-# ---------------- GET NAME ----------------
-
+# GET NAME
 @app.route("/get_name", methods=["POST"])
 def get_name():
 
-    name = request.form.get("SpeechResult") or "Patient"
+    name = request.form.get("SpeechResult")
     phone = request.form.get("From")
+
+    if not name:
+        name = "Patient"
 
     response = VoiceResponse()
 
@@ -86,30 +87,28 @@ def get_name():
     return str(response)
 
 
-# ---------------- GET PROBLEM ----------------
-
+# GET PROBLEM
 @app.route("/get_problem", methods=["POST"])
 def get_problem():
 
     name = request.args.get("name")
     phone = request.args.get("phone")
-    problem = request.form.get("SpeechResult") or "No problem described"
+    problem = request.form.get("SpeechResult")
 
-    # Save to Excel
-    try:
-        df = pd.read_excel(excel_file)
+    if not problem:
+        problem = "Not specified"
 
-        new_data = pd.DataFrame([{
-            "Phone": phone,
-            "Name": name,
-            "Problem": problem
-        }])
+    # save to excel
+    df = pd.read_excel(excel_file)
 
-        df = pd.concat([df, new_data], ignore_index=True)
-        df.to_excel(excel_file, index=False)
+    new_data = pd.DataFrame([{
+        "Phone": phone,
+        "Name": name,
+        "Problem": problem
+    }])
 
-    except:
-        pass
+    df = pd.concat([df, new_data], ignore_index=True)
+    df.to_excel(excel_file, index=False)
 
     response = VoiceResponse()
 
@@ -122,8 +121,7 @@ def get_problem():
     return str(response)
 
 
-# ---------------- RENDER SERVER ----------------
-
+# IMPORTANT FOR RENDER
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
